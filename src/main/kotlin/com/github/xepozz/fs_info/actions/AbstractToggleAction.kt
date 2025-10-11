@@ -11,8 +11,8 @@ abstract class AbstractToggleAction(action: AnActionEvent) : ToggleOptionAction.
     val project: Project = action.project!!
     val settings: FsInfoSettings = project.getService(FsInfoSettings::class.java)
 
+    override fun isAlwaysVisible() = true
     override fun isEnabled() = settings.enabled
-
     override fun isSelected() = option.get()
 
     override fun setSelected(selected: Boolean) {
