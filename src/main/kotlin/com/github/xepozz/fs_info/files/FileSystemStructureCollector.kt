@@ -1,5 +1,7 @@
 package com.github.xepozz.fs_info.files
 
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.guessProjectDir
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.fileVisitor
@@ -11,9 +13,25 @@ import kotlin.io.path.visitFileTree
 class FileSystemStructureCollector() {
     private val nodeMap = mutableMapOf<Path, FileNodeDescriptor>()
 
+    fun removeNode(path: Path) {
+        nodeMap.remove(path)
+    }
+
+    fun removeParent(path: Path) {
+        nodeMap.forEach { (key, value) ->
+            if (value.parent?.path == path) {
+                removeNode(key)
+                removeParent(key)
+            }
+        }
+    }
+
     fun getNode(path: Path): FileNodeDescriptor? = nodeMap[path]
 
-    fun refresh(projectPath: Path) {
+    fun refresh(project: Project) {
+        val projectDirectory = project.guessProjectDir() ?: return
+        val projectPath = projectDirectory.toNioPath()
+
         nodeMap[projectPath] = FileNodeDescriptor(
             path = projectPath,
             isDirectory = true
@@ -23,6 +41,8 @@ class FileSystemStructureCollector() {
 
     val structureVisitor = fileVisitor {
         onPreVisitDirectory { directory, attributes ->
+            if (nodeMap.containsKey(directory)) return@onPreVisitDirectory FileVisitResult.CONTINUE
+
             val parentPath = directory.parent
             val parentNode = nodeMap[parentPath]
 
@@ -35,19 +55,21 @@ class FileSystemStructureCollector() {
             nodeMap[directory] = dirNode
             parentNode?.children?.put(directory.name, dirNode)
 
-            if (directory.name in setOf("build", ".git", "node_modules", ".idea")) {
-                FileVisitResult.SKIP_SUBTREE
-            } else {
-                FileVisitResult.CONTINUE
-            }
+            FileVisitResult.CONTINUE
         }
 
         onVisitFile { file, attributes ->
+            if (nodeMap.containsKey(file)) return@onVisitFile FileVisitResult.CONTINUE
+
             val parentPath = file.parent
             val parentNode = nodeMap[parentPath]
 
             val fileSize = attributes.size().toULong()
-            val lines = if (fileSize > FileSizeType.MEGABYTES.bytes * 10.toULong()) 0 else countLines(file)
+            val lines = when {
+                fileSize > FileSizeType.MEGABYTES.bytes * 10.toULong() -> 0
+                !attributes.isRegularFile -> 0
+                else -> countLines(file)
+            }
 
             val fileNode = FileNodeDescriptor(
                 path = file,
@@ -60,10 +82,6 @@ class FileSystemStructureCollector() {
             nodeMap[file] = fileNode
             parentNode?.children?.put(file.name, fileNode)
 
-            FileVisitResult.CONTINUE
-        }
-
-        onPostVisitDirectory { directory, exception ->
             FileVisitResult.CONTINUE
         }
 
