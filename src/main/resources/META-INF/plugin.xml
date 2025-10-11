@@ -17,8 +17,8 @@
         <listener
                 activeInTestMode="false"
                 activeInHeadlessMode="false"
-                topic="com.intellij.openapi.vcs.FileStatusListener"
-                class="com.github.xepozz.fs_info.FileStatusListener"/>
+                class="com.github.xepozz.fs_info.FileStatusListener"
+                topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
     </projectListeners>
 
     <actions>
