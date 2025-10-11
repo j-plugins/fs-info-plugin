@@ -21,12 +21,10 @@ abstract class AbstractToggleAction(action: AnActionEvent) : ToggleOptionAction.
         option.set(selected)
 
         if (updated) {
-            project.let { project ->
-                ProjectView
-                    .getInstance(project)
-                    .currentProjectViewPane
-                    ?.updateFromRoot(true)
-            }
+            ProjectView
+                .getInstance(project)
+                .currentProjectViewPane
+                ?.updateFromRoot(true)
         }
     }
 
