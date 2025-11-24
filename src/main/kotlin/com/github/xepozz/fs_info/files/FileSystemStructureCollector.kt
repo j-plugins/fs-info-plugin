@@ -1,7 +1,6 @@
 package com.github.xepozz.fs_info.files
 
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.project.guessProjectDir
+import java.lang.ref.WeakReference
 import java.nio.file.FileVisitResult
 import java.nio.file.Path
 import kotlin.io.path.fileVisitor
@@ -14,26 +13,14 @@ class FileSystemStructureCollector() {
     private val nodeMap = mutableMapOf<Path, FileNodeDescriptor>()
 
     fun removeNode(path: Path) {
-        nodeMap.remove(path)
-    }
-
-    fun removeParent(path: Path) {
-        nodeMap.forEach { (key, value) ->
-            if (value.parent?.path == path) {
-                removeNode(key)
-                removeParent(key)
-            }
-        }
+        val descriptor = nodeMap.remove(path)
+        descriptor?.children?.clear()
     }
 
     fun getNode(path: Path): FileNodeDescriptor? = nodeMap[path]
 
-    fun refresh(project: Project) {
-        val projectDirectory = project.guessProjectDir() ?: return
-        val projectPath = projectDirectory.toNioPath()
-
+    fun refresh(projectPath: Path) {
         nodeMap[projectPath] = FileNodeDescriptor(
-            path = projectPath,
             isDirectory = true
         )
         projectPath.visitFileTree(structureVisitor)
@@ -47,13 +34,11 @@ class FileSystemStructureCollector() {
             val parentNode = nodeMap[parentPath]
 
             val dirNode = FileNodeDescriptor(
-                path = directory,
                 isDirectory = true,
-                parent = parentNode,
             )
 
             nodeMap[directory] = dirNode
-            parentNode?.children?.put(directory.name, dirNode)
+            parentNode?.children?.put(directory.name, WeakReference(dirNode))
 
             FileVisitResult.CONTINUE
         }
@@ -72,15 +57,13 @@ class FileSystemStructureCollector() {
             }
 
             val fileNode = FileNodeDescriptor(
-                path = file,
                 size = fileSize,
                 lines = lines,
                 isDirectory = false,
-                parent = parentNode
             )
 
             nodeMap[file] = fileNode
-            parentNode?.children?.put(file.name, fileNode)
+            parentNode?.children?.put(file.name, WeakReference(fileNode))
 
             FileVisitResult.CONTINUE
         }
